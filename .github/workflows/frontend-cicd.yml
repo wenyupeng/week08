@@ -77,12 +77,22 @@ jobs:
 
       - name: Inject Backend IPs into Frontend main.js
         run: |
-          echo "Injecting IPs into frontend/static/js/main.js"
-          # Ensure frontend/main.js is directly in the path for sed
-          sed -i "s|_PRODUCT_API_URL_|${PRODUCT_API_IP}|g" frontend/main.js
-          sed -i "s|_ORDER_API_URL_|${ORDER_API_IP}|g" frontend/main.js
-          
-          # Display the modified file content for debugging
+          PRODUCT_IP=$(kubectl get svc product-service-w08e1 -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+          ORDER_IP=$(kubectl get svc order-service-w08e1 -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+
+          if [[ -z "$PRODUCT_IP" || -z "$ORDER_IP" ]]; then
+            echo "Error: Could not fetch service IPs from Kubernetes."
+            exit 1
+          fi
+
+          PRODUCT_API_IP="http://$PRODUCT_IP:8000"
+          ORDER_API_IP="http://$ORDER_IP:8001"
+
+          echo "Injecting IPs into frontend/main.js"
+          sed -i "s|_PRODUCT_API_URL_|$PRODUCT_API_IP|g" frontend/main.js
+          sed -i "s|_ORDER_API_URL_|$ORDER_API_IP|g" frontend/main.js
+
+          # Debug
           echo "--- Modified main.js content ---"
           cat frontend/main.js
           echo "---------------------------------"
