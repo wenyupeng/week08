@@ -5,28 +5,28 @@ on:
     inputs:
       aks_cluster_name:
         description: 'Name of the AKS Cluster to deploy to'
-        required: true
-        default: '<aks_cluster_name>'
+        required: false
+        default: 'week09-aks'
       aks_resource_group:
         description: 'Resource Group of the AKS Cluster'
-        required: true
-        default: '<resource_group_name>'
+        required: false
+        default: 'deakinuni'
       aks_acr_name:
         description: 'Name of ACR'
-        required: true
-        default: '<acr_name>'
+        required: false
+        default: 'chriswen430week09acr'
   workflow_call:
     inputs:
       aks_cluster_name:
-        required: true
+        required: false
         type: string
         default: 'week09-aks'
       aks_resource_group:
-        required: true
+        required: false
         type: string
         default: 'deakinuni'
       aks_acr_name:
-        required: true
+        required: false
         type: string
         default: 'chriswen430week09acr'
   push:
@@ -42,7 +42,7 @@ on:
       - 'backend/**'
       - '.github/workflows/backend_ci.yml' # Trigger if this workflow file changes
     types: [opened, synchronize, reopened]
-    
+
 jobs:
   deploy_backend:
     runs-on: ubuntu-latest
@@ -64,19 +64,24 @@ jobs:
 
       - name: Set Kubernetes context (get AKS credentials)
         run: |
-          az aks get-credentials --resource-group ${{ github.event.inputs.aks_resource_group }} --name ${{ github.event.inputs.aks_cluster_name }} --overwrite-existing
+          AKS_CLUSTER_NAME=${{ github.event.inputs.aks_cluster_name || 'week09-aks' }}
+          AKS_RESOURCE_GROUP=${{ github.event.inputs.aks_resource_group || 'deakinuni' }}
+          az aks get-credentials --resource-group $AKS_RESOURCE_GROUP --name $AKS_CLUSTER_NAME --overwrite-existing
 
       - name: Attach ACR
         run: |
-          az aks update --name ${{ github.event.inputs.aks_cluster_name }} --resource-group ${{ github.event.inputs.aks_resource_group }} --attach-acr ${{ github.event.inputs.aks_acr_name }}
+          AKS_CLUSTER_NAME=${{ github.event.inputs.aks_cluster_name || 'week09-aks' }}
+          AKS_RESOURCE_GROUP=${{ github.event.inputs.aks_resource_group || 'deakinuni' }}
+          AKS_ACR_NAME=${{ github.event.inputs.aks_acr_name || 'chriswen430week09acr' }}
+          az aks update --name $AKS_CLUSTER_NAME --resource-group $AKS_RESOURCE_GROUP --attach-acr $AKS_ACR_NAME
 
       - name: Get latest Docker image versions from ACR
         id: get_latest_versions
         run: |
-          PRODUCT_TAG=$(az acr repository show-tags --name ${{ github.event.inputs.aks_acr_name }} --repository product_service --query "sort(@)[-1]" -o tsv)
-          ORDER_TAG=$(az acr repository show-tags --name ${{ github.event.inputs.aks_acr_name }} --repository order_service --query "sort(@)[-1]" -o tsv)
+          AKS_ACR_NAME=${{ github.event.inputs.aks_acr_name || 'chriswen430week09acr' }}
+          PRODUCT_TAG=$(az acr repository show-tags --name $AKS_ACR_NAME --repository product_service --query "sort(@)[-1]" -o tsv)
+          ORDER_TAG=$(az acr repository show-tags --name $AKS_ACR_NAME --repository order_service --query "sort(@)[-1]" -o tsv)
 
-          # if there is no image use tag: latest
           if [[ -z "$PRODUCT_TAG" ]]; then PRODUCT_TAG=latest; fi
           if [[ -z "$ORDER_TAG" ]]; then ORDER_TAG=latest; fi
 
@@ -88,8 +93,9 @@ jobs:
       # modify k8s yaml files to use the latest image versions
       - name: Update Kubernetes YAML with latest image versions
         run: |
-          sed -i "s|image: .*product_service:.*|image: ${{ github.event.inputs.aks_acr_name }}.azurecr.io/product_service:${PRODUCT_TAG}|g" k8s/product-service.yaml
-          sed -i "s|image: .*order_service:.*|image: ${{ github.event.inputs.aks_acr_name }}.azurecr.io/order_service:${ORDER_TAG}|g" k8s/order-service.yaml
+          AKS_ACR_NAME=${{ github.event.inputs.aks_acr_name || 'chriswen430week09acr' }}
+          sed -i "s|image: .*product_service:.*|image: $AKS_ACR_NAME.azurecr.io/product_service:${PRODUCT_TAG}|g" k8s/product-service.yaml
+          sed -i "s|image: .*order_service:.*|image: $AKS_ACR_NAME.azurecr.io/order_service:${ORDER_TAG}|g" k8s/order-service.yaml
 
       - name: Deploy Backend Infrastructure (Namespace, ConfigMaps, Secrets, Databases)
         run: |
