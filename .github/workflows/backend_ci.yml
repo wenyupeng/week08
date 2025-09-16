@@ -143,23 +143,21 @@ jobs:
       id: version
       run: |
         # Product service
-        latest=$(az acr repository show-tags --name ${{ env.ACR_LOGIN_SERVER }} --repository product_service --query "sort(@)[-1]" -o tsv)
-        if [[ -z "$latest" ]]; then
-          latest_version=1
-        else
+        if az acr repository show --name ${{ env.ACR_LOGIN_SERVER }} --repository product_service >/dev/null 2>&1; then
+          latest=$(az acr repository show-tags --name ${{ env.ACR_LOGIN_SERVER }} --repository product_service --query "sort(@)[-1]" -o tsv)
           latest_version=$(( ${latest#v} + 1 ))
+        else
+          latest_version=1
         fi
-        echo "Next product_service version: v$latest_version"
         echo "PRODUCT_VERSION=v$latest_version" >> $GITHUB_ENV
 
         # Order service
-        latest_order=$(az acr repository show-tags --name ${{ env.ACR_LOGIN_SERVER }} --repository order_service --query "sort(@)[-1]" -o tsv)
-        if [[ -z "$latest_order" ]]; then
-          latest_order_version=1
-        else
+        if az acr repository show --name ${{ env.ACR_LOGIN_SERVER }} --repository order_service >/dev/null 2>&1; then
+          latest_order=$(az acr repository show-tags --name ${{ env.ACR_LOGIN_SERVER }} --repository order_service --query "sort(@)[-1]" -o tsv)
           latest_order_version=$(( ${latest_order#v} + 1 ))
+        else
+          latest_order_version=1
         fi
-        echo "Next order_service version: v$latest_order_version"
         echo "ORDER_VERSION=v$latest_order_version" >> $GITHUB_ENV
 
     # Build and Push Docker image for Product Service
