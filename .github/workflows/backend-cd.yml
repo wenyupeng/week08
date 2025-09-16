@@ -58,6 +58,12 @@ jobs:
           echo "Latest Product Service image: $PRODUCT_TAG"
           echo "Latest Order Service image: $ORDER_TAG"
   
+      # modify k8s yaml files to use the latest image versions
+      - name: Update Kubernetes YAML with latest image versions
+        run: |
+          sed -i "s|image: .*product_service:.*|image: ${{ github.event.inputs.aks_acr_name }}.azurecr.io/product_service:${PRODUCT_TAG}|g" k8s/product-service.yaml
+          sed -i "s|image: .*order_service:.*|image: ${{ github.event.inputs.aks_acr_name }}.azurecr.io/order_service:${ORDER_TAG}|g" k8s/order-service.yaml
+
       - name: Deploy Backend Infrastructure (Namespace, ConfigMaps, Secrets, Databases)
         run: |
           echo "Deploying backend infrastructure..."
