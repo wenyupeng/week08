@@ -40,13 +40,7 @@ on:
     paths: # Only trigger if changes are in backend directories
       - 'backend/**'
       - '.github/workflows/backend_ci.yml' # Trigger if this workflow file changes
-  pull_request:
-    branches:
-      - main
-    paths: # Only trigger if changes are in backend directories
-      - 'backend/**'
-      - '.github/workflows/backend_ci.yml' # Trigger if this workflow file changes
-    types: [opened, synchronize, reopened]
+
 
 jobs:
   deploy_backend:
@@ -72,13 +66,6 @@ jobs:
           AKS_CLUSTER_NAME=${{ github.event.inputs.aks_cluster_name || 'week09-aks' }}
           AKS_RESOURCE_GROUP=${{ github.event.inputs.aks_resource_group || 'deakinuni' }}
           az aks get-credentials --resource-group $AKS_RESOURCE_GROUP --name $AKS_CLUSTER_NAME --overwrite-existing
-
-      - name: Attach ACR
-        run: |
-          AKS_CLUSTER_NAME=${{ github.event.inputs.aks_cluster_name || 'week09-aks' }}
-          AKS_RESOURCE_GROUP=${{ github.event.inputs.aks_resource_group || 'deakinuni' }}
-          AKS_ACR_NAME=${{ github.event.inputs.aks_acr_name || 'chriswen430week09acr' }}
-          az aks update --name $AKS_CLUSTER_NAME --resource-group $AKS_RESOURCE_GROUP --attach-acr $AKS_ACR_NAME
 
       - name: Get latest Docker image versions from ACR
         id: get_latest_versions
