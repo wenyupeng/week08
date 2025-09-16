@@ -7,14 +7,6 @@ name: CD - Deploy Frontend to AKS
 on:
   workflow_dispatch:
     inputs:
-      product_api_ip:
-        description: 'External IP of Product Service'
-        required: true
-        default: 'http://<ip_address>:8000'
-      order_api_ip:
-        description: 'External IP of Order Service (e.g., http://Y.Y.Y.Y:8001)'
-        required: true
-        default: 'http://<ip_address>:8001'
       aks_cluster_name:
         description: 'Name of the AKS Cluster to deploy to'
         required: true
@@ -26,12 +18,6 @@ on:
 
   workflow_call:
     inputs:
-      product_api_ip:
-        required: true
-        type: string
-      order_api_ip:
-        required: true
-        type: string
       aks_cluster_name:
         required: true
         type: string
@@ -72,6 +58,28 @@ jobs:
       - name: Login to Azure Container Registry
         run: az acr login --name ${{ secrets.AZURE_CONTAINER_REGISTRY }}
 
+      - name: Set Kubernetes context (get AKS credentials)
+        uses: azure/aks-set-context@v3
+        with:
+          resource-group: ${{ inputs.aks_resource_group }}
+          cluster-name: ${{ inputs.aks_cluster_name }}
+
+      # Auto-fetch Product and Order service IPs from Kubernetes
+      - name: Fetch Backend Service IPs from AKS
+        id: fetch_ips
+        run: |
+          echo "Fetching Product and Order Service IPs from AKS..."
+          PRODUCT_IP=$(kubectl get svc product-service-w08e1 -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+          ORDER_IP=$(kubectl get svc order-service-w08e1 -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+
+          if [[ -z "$PRODUCT_IP" || -z "$ORDER_IP" ]]; then
+            echo "Error: Could not fetch service IPs from Kubernetes."
+            exit 1
+          fi
+
+          echo "PRODUCT_API_IP=http://$PRODUCT_IP:8000" >> $GITHUB_ENV
+          echo "ORDER_API_IP=http://$ORDER_IP:8001" >> $GITHUB_ENV
+
       - name: Inject Backend IPs into Frontend main.js
         run: |
           echo "Injecting IPs into frontend/static/js/main.js"
@@ -106,12 +114,6 @@ jobs:
         run: |
           docker build -t ${{ secrets.AZURE_CONTAINER_REGISTRY }}/frontend:${{ env.NEXT_FRONTEND_VERSION }} ./frontend/
           docker push ${{ secrets.AZURE_CONTAINER_REGISTRY }}/frontend:${{ env.NEXT_FRONTEND_VERSION }}
-
-      - name: Set Kubernetes context (get AKS credentials)
-        uses: azure/aks-set-context@v3
-        with:
-          resource-group: ${{ inputs.aks_resource_group }}
-          cluster-name: ${{ inputs.aks_cluster_name }}
 
       - name: Deploy Frontend to AKS
         run: |
