@@ -38,6 +38,20 @@ on:
       aks_resource_group:
         required: true
         type: string
+  push:
+    branches:
+      - main
+      - development 
+    paths: # Only trigger if changes are in backend directories
+      - 'frontend/**'
+      - '.github/workflows/frontend-cicd.yml' # Trigger if this workflow file changes
+  pull_request:
+    branches:
+      - main
+    paths: # Only trigger if changes are in backend directories
+      - 'frontend/**'
+      - '.github/workflows/frontend-cicd.yml' # Trigger if this workflow file changes
+    types: [opened, synchronize, reopened]
 
 jobs:
   deploy_frontend:
@@ -70,11 +84,28 @@ jobs:
           cat frontend/main.js
           echo "---------------------------------"
 
+      - name: Determine next frontend image version
+        id: frontend_version
+        run: |
+          latest=$(az acr repository show-tags \
+            --name ${{ secrets.AZURE_CONTAINER_REGISTRY }} \
+            --repository frontend \
+            --query "sort(@)[-1]" -o tsv 2>/dev/null || echo "")
+          if [[ -z "$latest" ]]; then
+            next_version=v1
+          else
+            num=${latest#v}
+            next_version="v$((num+1))"
+          fi
+          echo "NEXT_FRONTEND_VERSION=$next_version" >> $GITHUB_ENV
+          echo "Next frontend version: $next_version"
+
+
       # Build and Push Docker image for Frontend
       - name: Build and Push Frontend Image
         run: |
-          docker build -t ${{ secrets.AZURE_CONTAINER_REGISTRY }}/frontend:latest ./frontend/
-          docker push ${{ secrets.AZURE_CONTAINER_REGISTRY }}/frontend:latest
+          docker build -t ${{ secrets.AZURE_CONTAINER_REGISTRY }}/frontend:${{ env.NEXT_FRONTEND_VERSION }} ./frontend/
+          docker push ${{ secrets.AZURE_CONTAINER_REGISTRY }}/frontend:${{ env.NEXT_FRONTEND_VERSION }}
 
       - name: Set Kubernetes context (get AKS credentials)
         uses: azure/aks-set-context@v3
@@ -84,9 +115,10 @@ jobs:
 
       - name: Deploy Frontend to AKS
         run: |
-          echo "Deploying frontend with latest tag to AKS cluster: ${{ inputs.aks_cluster_name }}"
+          echo "Deploying frontend:${{ env.NEXT_FRONTEND_VERSION }} to AKS cluster: ${{ inputs.aks_cluster_name }}"
+          # Update the image tag in your Kubernetes manifest before applying
+          sed -i "s|frontend:.*|frontend:${{ env.NEXT_FRONTEND_VERSION }}|g" k8s/frontend.yaml
           cd k8s/
-          # Ensure frontend-service.yaml is configured with your ACR
           kubectl apply -f frontend.yaml
 
       - name: Logout from Azure (AKS deployment)
