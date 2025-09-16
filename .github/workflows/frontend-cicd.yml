@@ -32,13 +32,7 @@ on:
     paths: # Only trigger if changes are in backend directories
       - 'frontend/**'
       - '.github/workflows/frontend-cicd.yml' # Trigger if this workflow file changes
-  pull_request:
-    branches:
-      - main
-    paths: # Only trigger if changes are in backend directories
-      - 'frontend/**'
-      - '.github/workflows/frontend-cicd.yml' # Trigger if this workflow file changes
-    types: [opened, synchronize, reopened]
+
 
 jobs:
   deploy_frontend:
