@@ -43,6 +43,21 @@ jobs:
         run: |
           az aks update --name ${{ github.event.inputs.aks_cluster_name }} --resource-group ${{ github.event.inputs.aks_resource_group }} --attach-acr ${{ github.event.inputs.aks_acr_name }}
 
+      - name: Get latest Docker image versions from ACR
+        id: get_latest_versions
+        run: |
+          PRODUCT_TAG=$(az acr repository show-tags --name ${{ github.event.inputs.aks_acr_name }} --repository product_service --query "sort(@)[-1]" -o tsv)
+          ORDER_TAG=$(az acr repository show-tags --name ${{ github.event.inputs.aks_acr_name }} --repository order_service --query "sort(@)[-1]" -o tsv)
+
+          # if there is no image use tag: latest
+          if [[ -z "$PRODUCT_TAG" ]]; then PRODUCT_TAG=latest; fi
+          if [[ -z "$ORDER_TAG" ]]; then ORDER_TAG=latest; fi
+
+          echo "PRODUCT_TAG=$PRODUCT_TAG" >> $GITHUB_ENV
+          echo "ORDER_TAG=$ORDER_TAG" >> $GITHUB_ENV
+          echo "Latest Product Service image: $PRODUCT_TAG"
+          echo "Latest Order Service image: $ORDER_TAG"
+  
       - name: Deploy Backend Infrastructure (Namespace, ConfigMaps, Secrets, Databases)
         run: |
           echo "Deploying backend infrastructure..."
