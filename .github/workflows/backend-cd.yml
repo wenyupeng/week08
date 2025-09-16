@@ -15,6 +15,20 @@ on:
         description: 'Name of ACR'
         required: true
         default: '<acr_name>'
+  workflow_call:
+    inputs:
+      aks_cluster_name:
+        required: true
+        type: string
+        default: 'week09-aks'
+      aks_resource_group:
+        required: true
+        type: string
+        default: 'deakinuni'
+      aks_acr_name:
+        required: true
+        type: string
+        default: 'chriswen430week09acr'
 
 jobs:
   deploy_backend:

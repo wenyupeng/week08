@@ -1,6 +1,6 @@
 # week08/.github/workflows/frontend-cd.yml
 
-name: CD - Deploy Frontend to AKS
+name: CI & CD - Deploy Frontend to AKS
 
 # This workflow can be called by other workflows and takes inputs.
 # Or it can be run manually if you provide the IPs.
@@ -21,13 +21,14 @@ on:
       aks_cluster_name:
         required: true
         type: string
+        default: 'week09-aks'
       aks_resource_group:
         required: true
         type: string
+        default: 'deakinuni'
   push:
     branches:
       - main
-      - development 
     paths: # Only trigger if changes are in backend directories
       - 'frontend/**'
       - '.github/workflows/frontend-cicd.yml' # Trigger if this workflow file changes
